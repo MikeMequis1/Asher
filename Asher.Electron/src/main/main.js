@@ -15,6 +15,7 @@ import {
   initAutoUpdater,
   openReleasePage
 } from './auto-updater.js';
+import { installMissingComponents, runEnvironmentPreflight } from './environment-preflight.js';
 
 const EMERGENCY_UNINSTALL_CMD = 'Uninstall-Asher.cmd';
 
@@ -126,6 +127,15 @@ hostManager.on('status-changed', () => {
 ipcMain.handle('asher:get-log-path', () => getDiagnosticLogPath());
 
 ipcMain.handle('app:get-version', () => app.getVersion());
+
+ipcMain.handle('preflight:check', () => runEnvironmentPreflight());
+
+ipcMain.handle('preflight:install', async (_event, components) => {
+  const result = await installMissingComponents(components, (progress) => {
+    broadcast('preflight:progress', progress);
+  });
+  return result;
+});
 
 ipcMain.handle('updater:check', (_event, options) => checkForUpdates(options ?? {}));
 

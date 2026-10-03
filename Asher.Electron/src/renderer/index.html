@@ -43,6 +43,25 @@
           <button id="retry-host" class="primary" data-i18n="shell.retry">Retry Connection</button>
         </section>
 
+        <section id="preflight-panel" class="panel shell-state" hidden>
+          <h2 data-i18n="preflight.title">Missing required components</h2>
+          <p class="help-text" data-i18n="preflight.description">
+            Asher needs some system components that are not installed on this computer. Review the
+            list below, then allow Asher to install them.
+          </p>
+
+          <ul id="preflight-list" class="preflight-list"></ul>
+
+          <div id="preflight-progress" class="install-details" hidden></div>
+          <div id="preflight-error" class="error" hidden></div>
+
+          <div class="action-row action-row-end">
+            <button id="preflight-continue" class="secondary" hidden data-i18n="preflight.continue">Continue</button>
+            <button id="preflight-install" class="primary" data-i18n="preflight.install">Install missing components</button>
+            <button id="preflight-retry" class="primary" hidden data-i18n="preflight.retry">Re-check and continue</button>
+          </div>
+        </section>
+
         <main id="app-content" hidden>
           <section id="welcome-view" class="panel page-view" hidden>
             <div class="page-header">

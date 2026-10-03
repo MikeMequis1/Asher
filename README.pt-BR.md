@@ -25,7 +25,7 @@ Inspirado em mod loaders como o **SMAPI**, o Asher prioriza uma ordem de inicial
    ```
    No Linux, o Electron também precisa das bibliotecas de sistema (NSS/NSPR/ALSA, GTK e FUSE para o AppImage) — veja [dependências Linux](docs/Cross-Platform-Architecture.md#linux-dependencies).
 2. Use **Setup** para detectar e salvar a pasta do jogo e depois **Install**.
-3. Inicie o jogo pela **Steam** ou pelo botão **Launch Game** do gerenciador (no Linux, inicie pelo gerenciador; lançamento externo via Steam/atalho ainda não foi implementado).
+3. Inicie o jogo pela **Steam** ou pelo botão **Launch Game** do gerenciador (no Linux, inicie pelo gerenciador — o **Play** da Steam abre o jogo sem patches; lançamento externo via Steam/atalho ainda não foi implementado).
 
 ### Adendo — XNA Framework (dependência de build)
 
@@ -63,6 +63,15 @@ npm run publish            # publica um GitHub Release (requer private/GH_TOKEN)
 O usuário roda o instalador NSIS (`Asher-Setup-<version>.exe`) ou extrai o zip portátil (ou usa `Distribution/`) e instala na pasta do jogo. O gerenciador permanece em `Distribution`; a pasta do jogo recebe o runtime e o `Uninstall-Asher.cmd` ao lado do `DustAET.exe` para restauração de emergência.
 
 O Linux é empacotado em um host Linux: `npm run dist:linux` / `npm run publish:linux` geram `Asher-<version>-linux-x86_64.AppImage`, `Asher-<version>-linux-x64.tar.gz` e `latest-linux.yml`. Atualizações no Linux são downloads manuais do GitHub Releases.
+
+> **Linux — problemas conhecidos e limitações atuais**
+>
+> - **Inicie apenas pelo gerenciador.** O runtime do Asher é carregado via `LD_PRELOAD` quando o gerenciador inicia o `DustAET`. Apertar **Play** na Steam inicia o jogo sem patches (sem mods). O lançamento externo via Steam/atalho ainda não foi implementado.
+> - **Sandbox / `./Asher` puro.** Em distros modernas (Ubuntu 24.04+) os user namespaces são restritos pelo AppArmor e o `chrome-sandbox` não é setuid; o launcher empacotado faz fallback automático para `--no-sandbox`, então `./Asher` funciona. Arquivos construídos no Windows também perdem as permissões — prefira compilar no Linux.
+> - **Na primeira execução faltam bibliotecas do sistema** (NSS/NSPR/ALSA/X11/Xrandr/GL). O gerenciador detecta as ausentes e oferece instalá-las (apt), ou pede instalação manual.
+> - **Outras lacunas:** sem updater Linux no app, sem `.deb`, sem atalho/lançamento externo. O timing do `mono_thread_attach` é mitigado por um atraso de settle.
+>
+> Detalhes e assinaturas de erro: [Linux VM troubleshooting](docs/Linux-VM-Troubleshooting.md).
 
 ## Desenvolvimento assistido por IA
 

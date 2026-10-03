@@ -136,13 +136,17 @@ unchanged (Electron dialog → `getGameFolderInfo`).
 
 | Variable | Value |
 |---|---|
-| `LD_PRELOAD` | `<game>/Asher/libasher_bootstrap.so` prepended to any inherited value (deduped) |
+| `LD_PRELOAD` | `Asher/libasher_bootstrap.so` (relative to `<game>`) prepended to any inherited value (deduped) |
 | `ASHER_HOME` | `<game>/Asher` |
 | `ASHER_MODS_PATH` | `<game>/Asher/Mods` |
 | `ASHER_LOG_PATH` | `<game>/Asher/AsherLogs` |
 | `ASHER_PROFILE` | inherited value, else `default` |
 | `MONO_PATH` | `<game>/Asher` prepended to any inherited value (deduped) |
 
+- `LD_PRELOAD` is deliberately **relative** to the game folder (the process working directory):
+  glibc's dynamic linker separates entries on spaces and colons and offers no escaping, so an
+  absolute path containing spaces (e.g. `.../Dust An Elysian Tail/Asher/libasher_bootstrap.so`)
+  would be split into bogus entries and silently skipped (`cannot be preloaded ... ignored`).
 - Unrelated inherited variables are not modified.
 - The game's stdout/stderr are **not inherited** by the Host: `RedirectStandardOutput`/`RedirectStandardError`
   are set and `SystemProcessStarter` pumps them to the Host's stderr as `[game-stdout]`/`[game-stderr]`.
@@ -168,8 +172,14 @@ unchanged (Electron dialog → `getGameFolderInfo`).
   binary name (`Asher.exe` / `Asher`).
 - `auto-updater.js` and `post-quit-helper.js` are Windows-only. Off Windows the updater reports
   `unavailable`; there is no Linux updater.
+- On startup the renderer runs a first-run environment preflight (`main/environment-preflight.js`)
+  before connecting the Host. On Windows it is a no-op. On Linux it probes the shared libraries the
+  Electron runtime and the game need (`libnss3`, `libnspr4`, `libasound.so.2`, `libX11.so.6`,
+  `libXrandr.so.2`, `libGL.so.1` via `ldconfig -p`). Missing ones are shown to the user, who may
+  approve an automatic `apt-get install` (elevation via passwordless `sudo -n`, else `pkexec`, else a
+  manual prompt). The preflight is advisory: it never silently installs anything.
 - `npm run smoke:platform` verifies the capability/state contract and that the renderer no longer
-  references `hasRestorableBackup`.
+  references `hasRestorableBackup`; `npm run smoke:preflight` covers the preflight contract.
 
 ## Tests
 
@@ -215,6 +225,14 @@ sudo apt-get install -y libfuse2t64
 The Host is self-contained and published with `InvariantGlobalization`, so no .NET runtime or `libicu`
 is required at runtime.
 
+At runtime the manager verifies the presence of the shared libraries above and offers to install any
+that are missing (see *Electron lifecycle*). Package managers other than apt are not handled; on such
+systems the preflight reports the components and asks the user to install them manually.
+
+Running the manager on a VM (display/GPU/DBus noise, the Host `exit code 0` shutdown cascade, and the
+`LD_PRELOAD`-spaces patch failure in `2.1.0`): see
+[Linux VM troubleshooting](Linux-VM-Troubleshooting.md).
+
 ## Linux build and packaging
 
 Target: **Linux x64**, artifacts **AppImage + tar.gz** (no `.deb`). Run on a Linux host (AppImage cannot
@@ -228,6 +246,10 @@ Pipeline (`npm run dist:linux` → `Asher.Electron/scripts/build-linux.sh`):
    deterministic, recreates the destination, fails if any required artifact is missing
 4. `electron-builder --linux AppImage tar.gz --x64`
 5. `scripts/verify-linux-package.mjs` — asserts the artifacts contain the Host and payload
+
+Packaging also runs an `afterPack` hook (`scripts/after-pack-linux.cjs`) that wraps the Linux
+launcher so plain `./Asher` works on modern distros regardless of the setuid sandbox state or
+lost file modes (see [Linux VM troubleshooting](Linux-VM-Troubleshooting.md)).
 
 Artifacts (`Asher.Electron/dist/`): `Asher-<version>-linux-x86_64.AppImage`,
 `Asher-<version>-linux-x64.tar.gz`, `latest-linux.yml`, and `linux-unpacked/` (manager binary `Asher`).

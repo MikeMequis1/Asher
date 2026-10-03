@@ -65,6 +65,8 @@ public class GameProcessLauncherTests
     private static string BootstrapPath(string game) =>
         AsherPaths.GetBootstrapLibraryPath(game, new LinuxPlatformInfo());
 
+    private const string PreloadPath = "Asher/libasher_bootstrap.so";
+
     [Fact]
     public void Launches_native_executable_in_game_directory()
     {
@@ -99,7 +101,30 @@ public class GameProcessLauncherTests
 
         launcher.TryStart(ExecutablePath(game), game, out _);
 
-        Assert.Equal(BootstrapPath(game), starter.LastStartInfo!.Environment["LD_PRELOAD"]);
+        Assert.Equal(PreloadPath, starter.LastStartInfo!.Environment["LD_PRELOAD"]);
+    }
+
+    [Fact]
+    public void Preload_is_relative_and_space_free()
+    {
+        using var temp = new TempDirectory();
+        var platform = new LinuxPlatformInfo();
+        var starter = new FakeProcessStarter();
+        var launcher = new LinuxGameProcessLauncher(
+            platform,
+            new LinuxRuntimeDeployment(platform),
+            starter,
+            new FakeEnvironmentProvider());
+
+        var game = temp.CreateGameFolder("Dust An Elysian Tail");
+        CreateInstalledLinuxGameIn(game);
+
+        Assert.True(launcher.TryStart(ExecutablePath(game), game, out _));
+
+        var preload = starter.LastStartInfo!.Environment["LD_PRELOAD"];
+        Assert.Equal(PreloadPath, preload);
+        Assert.DoesNotContain(" ", preload);
+        Assert.DoesNotContain(game, preload);
     }
 
     [Fact]
@@ -113,7 +138,7 @@ public class GameProcessLauncherTests
         launcher.TryStart(ExecutablePath(game), game, out _);
 
         Assert.Equal(
-            BootstrapPath(game) + ":/opt/other.so",
+            PreloadPath + ":/opt/other.so",
             starter.LastStartInfo!.Environment["LD_PRELOAD"]);
     }
 
@@ -125,18 +150,17 @@ public class GameProcessLauncherTests
         var platform = new LinuxPlatformInfo();
         var deployment = new LinuxRuntimeDeployment(platform);
         var starter = new FakeProcessStarter();
-        var bootstrap = AsherPaths.GetBootstrapLibraryPath(game, platform);
 
         var launcher = new LinuxGameProcessLauncher(
             platform,
             deployment,
             starter,
-            new FakeEnvironmentProvider(new Dictionary<string, string> { ["LD_PRELOAD"] = bootstrap }));
+            new FakeEnvironmentProvider(new Dictionary<string, string> { ["LD_PRELOAD"] = PreloadPath }));
         CreateInstalledLinuxGameIn(game);
 
         launcher.TryStart(ExecutablePath(game), game, out _);
 
-        Assert.Equal(bootstrap, starter.LastStartInfo!.Environment["LD_PRELOAD"]);
+        Assert.Equal(PreloadPath, starter.LastStartInfo!.Environment["LD_PRELOAD"]);
     }
 
     private static void CreateInstalledLinuxGameIn(string game)

@@ -124,6 +124,39 @@ export class ApplicationClient {
     return this.api.getAppVersion();
   }
 
+  /**
+   * First-run environment preflight (Linux: required system libraries; Windows: no-op).
+   * @returns {Promise<import('./environment-preflight.js').PreflightResult>}
+   */
+  runPreflight() {
+    if (!this.api.runPreflight) {
+      return Promise.resolve({ platform: 'unknown', requiresComponents: false, missing: [], canAutoInstall: false, packageManager: null });
+    }
+    return this.api.runPreflight();
+  }
+
+  /**
+   * Install the missing components listed by the preflight (user-approved).
+   * @param {import('./environment-preflight.js').MissingComponent[]} components
+   * @returns {Promise<{ ok: boolean, message: string, details?: string }>}
+   */
+  installComponents(components) {
+    if (!this.api.installComponents) {
+      return Promise.resolve({ ok: false, message: 'Automatic installation is unavailable.' });
+    }
+    return this.api.installComponents(components);
+  }
+
+  /**
+   * @param {(progress: { message: string, details?: string }) => void} callback
+   */
+  onPreflightProgress(callback) {
+    if (!this.api.onPreflightProgress) {
+      return () => {};
+    }
+    return this.api.onPreflightProgress(callback);
+  }
+
   minimizeWindow() {
     if (!this.api.minimizeWindow) {
       return Promise.resolve();

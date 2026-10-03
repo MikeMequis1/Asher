@@ -3,7 +3,8 @@ import { logDiagnostic, refreshDiagnosticLogFooter } from './diagnostic-log.js';
 
 /** @typedef {import('./application-client.js').ApplicationClient} ApplicationClient */
 /** @typedef {import('./application-state.js').ApplicationState} ApplicationState */
-/** @typedef {'booting' | 'connecting' | 'loading-app' | 'ready' | 'host-error'} ShellPhase */
+/** @typedef {import('./environment-preflight.js').PreflightResult} PreflightResult */
+/** @typedef {'booting' | 'connecting' | 'loading-app' | 'ready' | 'host-error' | 'preflight'} ShellPhase */
 /** @typedef {'welcome' | 'setup' | 'home' | 'manager' | 'settings' | 'install' | 'uninstall'} AppScreen */
 
 /**
@@ -134,8 +135,57 @@ export class ApplicationShell {
       void this.#handleHostStatus(status);
     });
 
+    await this.#ensureEnvironmentReady();
+    if (this.#phase === 'preflight') {
+      return;
+    }
     await this.#ensureHostConnected();
   }
+
+  /**
+   * First-run gate: verify required system components before connecting to the host.
+   * On Linux this surfaces missing NSS/NSPR/ALSA/etc.; on Windows it is a no-op.
+   */
+  async #ensureEnvironmentReady() {
+    /** @type {PreflightResult} */
+    let result;
+    try {
+      result = await this.client.runPreflight();
+    } catch (err) {
+      logDiagnostic('warn', 'shell', 'environment preflight failed', {
+        error: err instanceof Error ? err.message : String(err)
+      });
+      return;
+    }
+
+    if (!result?.requiresComponents) {
+      return;
+    }
+
+    this.#preflight = result;
+    this.#errorMessage = null;
+    this.#setPhase('preflight');
+  }
+
+  /**
+   * Called by the shell error/preflight UI to retry after the user installs components.
+   */
+  async retryPreflight() {
+    this.#errorMessage = null;
+    this.#setPhase('booting');
+    await this.#ensureEnvironmentReady();
+    if (this.#phase === 'preflight') {
+      return;
+    }
+    await this.#ensureHostConnected();
+  }
+
+  get preflight() {
+    return this.#preflight;
+  }
+
+  /** @type {PreflightResult | null} */
+  #preflight = null;
 
   async #ensureHostConnected() {
     const initial = await this.client.getHostStatus();

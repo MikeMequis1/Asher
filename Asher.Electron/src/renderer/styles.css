@@ -342,6 +342,44 @@ h1 {
   font-size: 1rem;
 }
 
+.preflight-list {
+  list-style: none;
+  margin: 1rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.preflight-item {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--warning, #d4a72c);
+  border-radius: 8px;
+  padding: 0.7rem 0.85rem;
+  background: var(--surface-muted);
+}
+
+.preflight-item-title {
+  font-weight: 600;
+}
+
+.preflight-item-reason {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0.15rem 0 0.35rem;
+}
+
+.preflight-item-packages {
+  font-family: var(--mono, monospace);
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  display: inline-block;
+}
+
 .badge {
   display: inline-block;
   padding: 0.15rem 0.5rem;

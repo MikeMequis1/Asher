@@ -33,11 +33,13 @@
     "smoke:uninstall": "node scripts/uninstall-smoke-test.mjs",
     "smoke:launch": "node scripts/launch-smoke-test.mjs",
     "smoke:payload": "node scripts/payload-smoke-test.mjs",
-    "smoke:platform": "node scripts/platform-smoke-test.mjs"
+    "smoke:platform": "node scripts/platform-smoke-test.mjs",
+    "smoke:preflight": "node scripts/preflight-smoke-test.mjs"
   },
   "build": {
     "appId": "com.asher.manager",
     "productName": "Asher",
+    "afterPack": "scripts/after-pack-linux.cjs",
     "directories": {
       "output": "dist"
     },

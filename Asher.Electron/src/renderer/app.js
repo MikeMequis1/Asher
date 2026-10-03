@@ -65,6 +65,14 @@ const hostErrorMessage = document.getElementById('host-error-message');
 const retryHostButton = document.getElementById('retry-host');
 const appContent = document.getElementById('app-content');
 
+const preflightPanel = document.getElementById('preflight-panel');
+const preflightList = document.getElementById('preflight-list');
+const preflightProgress = document.getElementById('preflight-progress');
+const preflightError = document.getElementById('preflight-error');
+const preflightInstallButton = document.getElementById('preflight-install');
+const preflightContinueButton = document.getElementById('preflight-continue');
+const preflightRetryButton = document.getElementById('preflight-retry');
+
 const welcomeView = document.getElementById('welcome-view');
 const welcomeBeginButton = document.getElementById('welcome-begin');
 
@@ -506,6 +514,81 @@ function normalizeAppearanceValue(value) {
   return String(value ?? '').trim().toLowerCase();
 }
 
+/** @type {boolean} */
+let preflightInstalling = false;
+
+function renderPreflight() {
+  const result = shell.preflight;
+  if (!result) {
+    return;
+  }
+
+  preflightList.innerHTML = '';
+  for (const component of result.missing) {
+    const item = document.createElement('li');
+    item.className = 'preflight-item';
+
+    const title = document.createElement('div');
+    title.className = 'preflight-item-title';
+    title.textContent = component.label;
+
+    const reason = document.createElement('div');
+    reason.className = 'preflight-item-reason';
+    reason.textContent = component.reason;
+
+    const packages = document.createElement('code');
+    packages.className = 'preflight-item-packages';
+    packages.textContent = component.packages.join(', ');
+
+    item.append(title, reason, packages);
+    preflightList.appendChild(item);
+  }
+
+  const canAutoInstall = result.canAutoInstall && !preflightInstalling;
+
+  preflightInstallButton.hidden = !canAutoInstall;
+  preflightInstallButton.disabled = preflightInstalling;
+  preflightContinueButton.hidden = !result.canAutoInstall;
+  preflightContinueButton.disabled = preflightInstalling;
+  preflightRetryButton.hidden = result.canAutoInstall;
+  preflightRetryButton.disabled = preflightInstalling;
+  preflightProgress.hidden = !preflightInstalling;
+
+  if (!result.canAutoInstall) {
+    preflightError.hidden = false;
+    preflightError.textContent = t('preflight.manual');
+  }
+}
+
+async function runPreflightInstall() {
+  const result = shell.preflight;
+  if (!result?.missing?.length) {
+    return;
+  }
+
+  preflightInstalling = true;
+  preflightError.hidden = true;
+  preflightProgress.hidden = false;
+  preflightProgress.textContent = t('preflight.installing');
+  renderPreflight();
+
+  const outcome = await client.installComponents(result.missing);
+
+  preflightInstalling = false;
+
+  if (!outcome?.ok) {
+    preflightError.hidden = false;
+    preflightError.textContent =
+      (outcome?.message || t('preflight.installFailed')) +
+      (outcome?.details ? `\n${outcome.details}` : '');
+    renderPreflight();
+    return;
+  }
+
+  await shell.retryPreflight();
+  renderShell();
+}
+
 function renderHostStatus() {
   const { status, message } = shell.hostStatus;
   const isReady = status === 'ready';
@@ -517,8 +600,9 @@ function renderHostStatus() {
 function renderShellPhase() {
   const { phase } = shell;
 
-  shellLoading.hidden = phase === 'ready' || phase === 'host-error';
+  shellLoading.hidden = phase === 'ready' || phase === 'host-error' || phase === 'preflight';
   hostErrorPanel.hidden = phase !== 'host-error';
+  preflightPanel.hidden = phase !== 'preflight';
   appContent.hidden = phase !== 'ready';
 
   if (phase === 'booting' || phase === 'connecting') {
@@ -529,6 +613,9 @@ function renderShellPhase() {
     shellLoadingTitle.textContent = t('shell.loading');
     shellLoadingMessage.textContent = t('shell.loadingConfig');
     pageSubtitle.textContent = t('app.subtitle.loading');
+  } else if (phase === 'preflight') {
+    pageSubtitle.textContent = t('preflight.subtitle');
+    renderPreflight();
   } else if (phase === 'host-error') {
     hostErrorMessage.textContent = shell.errorMessage ?? t('shell.hostError');
     pageSubtitle.textContent = t('app.subtitle.disconnected');
@@ -1331,6 +1418,37 @@ retryHostButton.addEventListener('click', async () => {
     await shell.retryHost();
   } finally {
     retryHostButton.disabled = false;
+  }
+});
+
+preflightInstallButton.addEventListener('click', () => runPreflightInstall());
+
+preflightContinueButton.addEventListener('click', async () => {
+  preflightContinueButton.disabled = true;
+  try {
+    await shell.retryPreflight();
+    renderShell();
+  } finally {
+    preflightContinueButton.disabled = false;
+  }
+});
+
+preflightRetryButton.addEventListener('click', async () => {
+  preflightRetryButton.disabled = true;
+  try {
+    await shell.retryPreflight();
+    renderShell();
+  } finally {
+    preflightRetryButton.disabled = false;
+  }
+});
+
+client.onPreflightProgress((progress) => {
+  if (progress?.message) {
+    preflightProgress.hidden = false;
+    preflightProgress.textContent = progress.details
+      ? `${progress.message}\n${progress.details}`
+      : progress.message;
   }
 });
 

@@ -33,6 +33,13 @@ contextBridge.exposeInMainWorld('asher', {
   getAppVersion: () => ipcRenderer.invoke('app:get-version'),
   checkForUpdates: (options) => ipcRenderer.invoke('updater:check', options),
   downloadAndApplyUpdate: (params) => ipcRenderer.invoke('updater:download-and-apply', params),
+  runPreflight: () => ipcRenderer.invoke('preflight:check'),
+  installComponents: (components) => ipcRenderer.invoke('preflight:install', components),
+  onPreflightProgress: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('preflight:progress', listener);
+    return () => ipcRenderer.removeListener('preflight:progress', listener);
+  },
   openReleasePage: (url) => ipcRenderer.invoke('updater:open-release', url),
   onUpdaterStatus: (callback) => {
     const listener = (_event, data) => callback(data);

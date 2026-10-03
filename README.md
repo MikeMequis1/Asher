@@ -25,7 +25,7 @@ Inspired by mod loaders such as **SMAPI**, Asher favors explicit initialization 
    ```
    On Linux, Electron also needs its system libraries (NSS/NSPR/ALSA, GTK, and FUSE for the AppImage) — see [Linux dependencies](docs/Cross-Platform-Architecture.md#linux-dependencies).
 2. Use **Setup** to detect and save your game folder, then **Install**.
-3. Launch the game via **Steam** or the manager's **Launch Game** button (on Linux, launch through the manager; external Steam/desktop launch is not implemented yet).
+3. Launch the game via **Steam** or the manager's **Launch Game** button (on Linux, launch through the manager — Steam's **Play** starts the game unpatched; external Steam/desktop launch is not implemented yet).
 
 ### Addendum — XNA Framework (build dependency)
 
@@ -63,6 +63,15 @@ npm run publish            # publish a GitHub Release (requires private/GH_TOKEN
 Users run the NSIS installer (`Asher-Setup-<version>.exe`) or extract the portable zip (or use `Distribution/`), then install into the game folder. The manager stays in `Distribution`; the game folder gets runtime files plus `Uninstall-Asher.cmd` beside `DustAET.exe` for emergency restore.
 
 Linux is packaged on a Linux host: `npm run dist:linux` / `npm run publish:linux` produce `Asher-<version>-linux-x86_64.AppImage`, `Asher-<version>-linux-x64.tar.gz`, and `latest-linux.yml`. Linux updates are manual GitHub release downloads.
+
+> **Linux — known issues & current limitations**
+>
+> - **Launch through the manager only.** The Asher runtime loads via `LD_PRELOAD` when the manager starts `DustAET`. Pressing **Play** in Steam launches the game unpatched (no mods). External Steam/desktop launch is not implemented yet.
+> - **Sandbox / plain `./Asher`.** On modern distros (Ubuntu 24.04+) user namespaces are AppArmor-restricted and the shipped `chrome-sandbox` is not setuid; the packaged launcher auto-falls back to `--no-sandbox` so plain `./Asher` works. Windows-built archives also lose file modes — prefer building on Linux.
+> - **First run needs system libraries** (NSS/NSPR/ALSA/X11/Xrandr/GL). The manager detects missing ones and offers to install them (apt), or asks you to install them manually.
+> - **Other gaps:** no in-app Linux updater, no `.deb`, no external desktop shortcut/launch. `mono_thread_attach` timing is mitigated by a settle delay.
+>
+> Details and error signatures: [Linux VM troubleshooting](docs/Linux-VM-Troubleshooting.md).
 
 ## AI-assisted development
 Asher is built with heavy AI assistance, primarily through **OpenCode**. AI helps with implementation, investigation, refactoring, testing, debugging, and documentation. Architecture, technical direction, scope, validation, and the final call on what ships stay human-directed. Check [❓ FAQ](https://mikesstash.com.br/asher/faq/) for a more detailed answer.

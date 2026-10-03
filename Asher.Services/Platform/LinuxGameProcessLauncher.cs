@@ -8,12 +8,16 @@ namespace Asher.Services.Platform
     /// <summary>
     /// Linux launches the native DustAET with the bootstrap environment the embedded-Mono
     /// entry point expects (see Asher.Linux/README.md):
-    ///   LD_PRELOAD      = &lt;game&gt;/Asher/libasher_bootstrap.so (prepended to any existing value)
+    ///   LD_PRELOAD      = Asher/libasher_bootstrap.so, relative to the game folder (prepended to any existing value)
     ///   ASHER_HOME      = &lt;game&gt;/Asher
     ///   ASHER_MODS_PATH = &lt;game&gt;/Asher/Mods
     ///   ASHER_LOG_PATH  = &lt;game&gt;/Asher/AsherLogs
     ///   ASHER_PROFILE   = inherited value, else "default"
     ///   MONO_PATH       = &lt;game&gt;/Asher (prepended to any existing value)
+    /// LD_PRELOAD is relative on purpose: glibc's dynamic linker separates entries on spaces and
+    /// colons and offers no escaping, so an absolute path into a game folder with spaces (e.g.
+    /// ".../Dust An Elysian Tail/...") would be split into several bogus entries and never loaded.
+    /// The working directory is set to the game folder, so the relative entry resolves correctly.
     /// The parent environment is preserved. The game's stdout/stderr are redirected off the Host's
     /// JSONL stdout channel and pumped to the Host's stderr by <see cref="SystemProcessStarter"/>.
     /// </summary>
@@ -65,7 +69,7 @@ namespace Asher.Services.Platform
 
             try
             {
-                _starter.Start(BuildStartInfo(executablePath, workingDirectory, asherHome, bootstrapPath));
+                _starter.Start(BuildStartInfo(executablePath, workingDirectory, asherHome));
                 errorMessage = null;
                 return true;
             }
@@ -79,8 +83,7 @@ namespace Asher.Services.Platform
         private ProcessStartInfo BuildStartInfo(
             string executablePath,
             string workingDirectory,
-            string asherHome,
-            string bootstrapPath)
+            string asherHome)
         {
             var startInfo = new ProcessStartInfo
             {
@@ -96,7 +99,7 @@ namespace Asher.Services.Platform
 
             startInfo.Environment[PreloadVariable] = PrependPath(
                 GetEnvironmentValue(startInfo, PreloadVariable),
-                bootstrapPath);
+                GetPreloadPath());
 
             startInfo.Environment[AsherHomeVariable] = asherHome;
             startInfo.Environment[AsherModsPathVariable] = AsherPaths.GetModsFolderPath(workingDirectory);
@@ -112,6 +115,13 @@ namespace Asher.Services.Platform
 
             return startInfo;
         }
+
+        /// <summary>
+        /// Bootstrap library location passed to LD_PRELOAD, relative to the game folder (the process
+        /// working directory). Kept space-free because glibc splits LD_PRELOAD on spaces and colons.
+        /// </summary>
+        internal string GetPreloadPath() =>
+            AsherPaths.RuntimeFolderName + "/" + _platform.BootstrapLibraryName;
 
         private static string? GetEnvironmentValue(ProcessStartInfo startInfo, string name) =>
             startInfo.Environment.TryGetValue(name, out var value) ? value : null;
